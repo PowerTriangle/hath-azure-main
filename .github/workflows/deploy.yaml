@@ -1,0 +1,52 @@
+name: Terafrom deploy
+
+on: 
+  push:
+    branches:
+        - main
+env:
+    ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+    ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+    terraform:
+        runs-on: ubuntu-latest
+        env:
+            env: dev
+        permissions:
+            contents: read
+            packages: write
+            actions: write
+            pull-requests: write
+        steps:
+        - name: Checkout code
+          uses: actions/checkout@v4.1.1
+
+        - name: SSH Deploykey
+          uses: webfactory/ssh-agent@v0.5.3
+          with:
+            ssh-private-key: ${{ secrets.SSH_KEY }}
+
+        - name: Terraform setup
+          uses: hashicorp/setup-terraform@v1
+          with:
+            terraform_version: 1.8.3
+
+        - name: Terraform Init
+          run: terraform init
+
+        - name: Terraform Validate
+          id: validate
+          run: terraform validate -no-color        
+      
+        - name: Terraform Plan
+          id: plan
+          run: terraform plan -no-color -var-file=config/${{ env.env }}/terraform.tfvars
+          continue-on-error: false
+
+        - name: Terraform Apply
+          id: apply
+          run: terraform apply -auto-approve -var-file=config/${{ env.env }}/terraform.tfvars
+          continue-on-error: false
